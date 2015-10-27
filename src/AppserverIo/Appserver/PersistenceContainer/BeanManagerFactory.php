@@ -64,13 +64,29 @@ class BeanManagerFactory implements ManagerFactoryInterface
 
         // initialize the stackable for the data, the stateful + singleton session beans and the naming directory
         $data = new StackableStorage();
+        $checksums = new StackableStorage();
         $instances = new GenericStackable();
         $singletonSessionBeans = new StackableStorage();
         $statefulSessionBeans = new StatefulSessionBeanMap();
+        $sessionMarshaller = new StandardSessionMarshaller();
 
         // initialize the default settings for the stateful session beans
         $statefulSessionBeanSettings = new DefaultStatefulSessionBeanSettings();
+        $statefulSessionBeanSettings->setSessionSavePath($application->getSessionDir());
         $statefulSessionBeanSettings->mergeWithParams($managerConfiguration->getParamsAsArray());
+
+        // we need a persistence manager
+        $persistenceManager = new FilesystemPersistenceManager();
+        $persistenceManager->injectLoggers($loggers);
+        $persistenceManager->injectChecksums($checksums);
+        $persistenceManager->injectApplication($application);
+        $persistenceManager->injectUser($application->getUser());
+        $persistenceManager->injectGroup($application->getGroup());
+        $persistenceManager->injectUmask($application->getUmask());
+        $persistenceManager->injectSessionMarshaller($sessionMarshaller);
+        $persistenceManager->injectStatefulSessionBeans($statefulSessionBeans);
+        $persistenceManager->injectStatefulSessionBeanSettings($statefulSessionBeanSettings);
+        $persistenceManager->start();
 
         // create an instance of the object factory
         $objectFactory = new GenericObjectFactory();
@@ -91,6 +107,7 @@ class BeanManagerFactory implements ManagerFactoryInterface
         $beanManager->injectObjectFactory($objectFactory);
         $beanManager->injectInitialContext($initialContext);
         $beanManager->injectGarbageCollector($garbageCollector);
+        $beanManager->injectPersistenceManager($persistenceManager);
         $beanManager->injectStatefulSessionBeans($statefulSessionBeans);
         $beanManager->injectSingletonSessionBeans($singletonSessionBeans);
         $beanManager->injectDirectories($managerConfiguration->getDirectories());

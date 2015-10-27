@@ -380,4 +380,18 @@ class StatefulSessionBeanMap extends GenericStackable implements MapInterface
     {
         return isset($this->items[$key]);
     }
+
+    /**
+     * Return's the keys of the items.
+     *
+     * @return array The item keys
+     */
+    public function getAllKeys()
+    {
+        $keys = array();
+        foreach ($this->items as $key => $value) {
+            $keys[] = $key;
+        }
+        return $keys;
+    }
 }

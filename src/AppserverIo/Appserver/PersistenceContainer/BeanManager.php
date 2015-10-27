@@ -54,7 +54,6 @@ use AppserverIo\Appserver\PersistenceContainer\Utils\SessionBeanUtil;
  * @property \AppserverIo\Storage\StorageInterface                                            $statefulSessionBeans          The storage for the stateful session beans
  * @property \AppserverIo\Storage\StorageInterface                                            $singletonSessionBeans         The storage for the singleton session beans
  * @property \AppserverIo\Appserver\PersistenceContainer\StatefulSessionBeanSettingsInterface $statefulSessionBeanSettings   Settings for the stateful session beans
- * @property \AppserverIo\Appserver\PersistenceContainer\StatefulSessionBeanMapFactory        $statefulSessionBeanMapFactory The factory instance
  * @property \AppserverIo\Appserver\PersistenceContainer\ObjectFactoryInterface               $objectFactory                 The object factory instance
  */
 class BeanManager extends AbstractEpbManager implements BeanContextInterface
@@ -70,6 +69,18 @@ class BeanManager extends AbstractEpbManager implements BeanContextInterface
     public function injectDirectories(array $directories)
     {
         $this->directories = $directories;
+    }
+
+    /**
+     * Injects the persistence manager.
+     *
+     * @param \AppserverIo\Appserver\PersistenceContainer\PersistenceManagerInterface $persistenceManager The persistence manager
+     *
+     * @return void
+     */
+    public function injectPersistenceManager(PersistenceManagerInterface $persistenceManager)
+    {
+        $this->persistenceManager = $persistenceManager;
     }
 
     /**
@@ -121,18 +132,6 @@ class BeanManager extends AbstractEpbManager implements BeanContextInterface
     }
 
     /**
-     * Injects the stateful session bean map factory.
-     *
-     * @param \AppserverIo\Appserver\PersistenceContainer\StatefulSessionBeanMapFactory $statefulSessionBeanMapFactory The factory instance
-     *
-     * @return void
-     */
-    public function injectStatefulSessionBeanMapFactory(StatefulSessionBeanMapFactory $statefulSessionBeanMapFactory)
-    {
-        $this->statefulSessionBeanMapFactory = $statefulSessionBeanMapFactory;
-    }
-
-    /**
      * Injects the object factory instance.
      *
      * @param \AppserverIo\Appserver\PersistenceContainer\ObjectFactoryInterface $objectFactory The object factory instance
@@ -167,7 +166,12 @@ class BeanManager extends AbstractEpbManager implements BeanContextInterface
      */
     public function initialize(ApplicationInterface $application)
     {
+
+        // register the beans for the passed application
         $this->registerBeans($application);
+
+        // initialize the persistence manager
+        $this->getPersistenceManager()->initialize();
     }
 
     /**
@@ -307,6 +311,16 @@ class BeanManager extends AbstractEpbManager implements BeanContextInterface
     }
 
     /**
+     * Returns the persistence manager instance.
+     *
+     * @return \AppserverIo\Appserver\PersistenceContainer\FilesystemPersistenceManager The persistence manager instance
+     */
+    public function getPersistenceManager()
+    {
+        return $this->persistenceManager;
+    }
+
+    /**
      * Return the resource locator instance.
      *
      * @return \AppserverIo\Psr\EnterpriseBeans\ResourceLocatorInterface The resource locator instance
@@ -442,6 +456,9 @@ class BeanManager extends AbstractEpbManager implements BeanContextInterface
 
         // create a unique SFSB identifier
         $identifier = SessionBeanUtil::createIdentifier($sessionId, $className);
+
+        // load the map with the SFSBs
+        $sessionBeans = $this->getStatefulSessionBeans();
 
         // query whether the SFSB with the passed identifier exists
         if ($sessionBeans->exists($identifier)) {
@@ -591,6 +608,7 @@ class BeanManager extends AbstractEpbManager implements BeanContextInterface
      */
     public function stop()
     {
+        $this->getPersistenceManager()->stop();
         $this->getGarbageCollector()->stop();
         $this->getObjectFactory()->stop();
     }

@@ -44,7 +44,9 @@ class DoctrineEntityManagerDecorator extends EntityManagerDecorator
     {
 
         // close the connection
-        $this->getWrapped()->getConnection()->close();
+        if ($wrapped = $this->getWrapped()) {
+            $wrapped->getConnection()->close();
+        }
 
         // we want to serialize NOTHING
         return array();

@@ -63,7 +63,7 @@ class StandardSessionManagerFactory implements ManagerFactoryInterface
         $sessionFactory->injectLoggers($loggers);
         $sessionFactory->start();
 
-        // we need a persistence manager and garbage collector
+        // we need a persistence manager
         $persistenceManager = new FilesystemPersistenceManager();
         $persistenceManager->injectLoggers($loggers);
         $persistenceManager->injectSessions($sessions);
