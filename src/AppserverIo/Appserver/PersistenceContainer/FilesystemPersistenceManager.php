@@ -106,7 +106,7 @@ class FilesystemPersistenceManager extends AbstractDaemonThread implements Persi
     /**
      * Injects the session settings.
      *
-     * @param \AppserverIo\Appserver\ServletEngine\SessionSettingsInterface $statefulSessionBeanSettings Settings for the session handling
+     * @param \AppserverIo\Appserver\PersistenceContainer\StatefullSessionBeanSettingsInterface $statefulSessionBeanSettings Settings for the session handling
      *
      * @return void
      */
@@ -279,18 +279,6 @@ class FilesystemPersistenceManager extends AbstractDaemonThread implements Persi
     }
 
     /**
-     * Returns the default timeout.
-     *
-     * @return integer The default timeout in microseconds
-     */
-    /*
-    public function getDefaultTimeout()
-    {
-        return parent::getDefaultTimeout() * 5;
-    }
-    */
-
-    /**
      * This is invoked on every iteration of the daemons while() loop.
      *
      * @param integer $timeout The timeout before the daemon wakes up
@@ -326,10 +314,18 @@ class FilesystemPersistenceManager extends AbstractDaemonThread implements Persi
         // we want to know what inactivity timeout we've to check the sessions for
         $inactivityTimeout = $this->getStatefulSessionBeanSettings()->getInactivityTimeout();
 
+        // load the lifetime in seconds from the SFSB settings
+        $lifetime = $this->getStatefulSessionBeanSettings()->getLifetime();
+
         // iterate over all the checksums (session that are active and loaded)
         foreach ($this->getStatefulSessionBeans()->getAllKeys() as $id) {
             // load the SFSB instance
             $statefulSessionBean = $this->getStatefulSessionBeans()->get($id);
+
+            // query whether we've a SFSB or not
+            if ($statefulSessionBean == null) {
+                continue;
+            }
 
             // if we don't have a checksum, this is a new session
             $checksum = null;
@@ -341,13 +337,16 @@ class FilesystemPersistenceManager extends AbstractDaemonThread implements Persi
             $wrapper = new StatefulSessionBeanWrapper($id);
             $wrapper->fromStatefulSessionBean($statefulSessionBean);
 
+            // load the SFSB's last activity timestamp
+            $lastActivitySecondsAgo = ($this->getStatefulSessionBeans()->getLifetime($id) - $lifetime) - time();
+
             // if the SFSB doesn't change
-            if ($checksum === $wrapper->checksum()) {
+            if ($checksum === $wrapper->checksum() && $lastActivitySecondsAgo < $inactivityTimeout) {
                 continue;
             }
 
             // we want to detach the session (to free memory), when the last activity is > the inactivity timeout (1440 by default)
-            if ($checksum === $wrapper->checksum() && $this->getStatefulSessionBeans()->isTimedOut($id)) {
+            if ($checksum === $wrapper->checksum()  && $lastActivitySecondsAgo > $inactivityTimeout) {
                 // prepare the session filename
                 $sessionFilename = $this->getSessionSavePath($this->getStatefulSessionBeanSettings()->getSessionFilePrefix() . $id);
 

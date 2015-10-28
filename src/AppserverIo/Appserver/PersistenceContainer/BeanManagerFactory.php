@@ -97,6 +97,8 @@ class BeanManagerFactory implements ManagerFactoryInterface
         // add a garbage collector and timer service workers for each application
         $garbageCollector = new StandardGarbageCollector();
         $garbageCollector->injectApplication($application);
+        $garbageCollector->injectSessionMarshaller($sessionMarshaller);
+        $garbageCollector->injectStatefulSessionBeanSettings($statefulSessionBeanSettings);
         $garbageCollector->start();
 
         // initialize the bean manager

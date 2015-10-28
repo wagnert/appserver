@@ -268,7 +268,7 @@ class StatefulSessionBeanMap extends GenericStackable implements MapInterface
      *
      * @return boolean TRUE if the item has timed out, else FALSE
      */
-    protected function isTimedOut($key)
+    public function isTimedOut($key)
     {
         // if the item is available and has timed out, return TRUE
         if (array_key_exists($key, $this->lifetime) && $this->lifetime[$key] < time()) {
@@ -281,11 +281,25 @@ class StatefulSessionBeanMap extends GenericStackable implements MapInterface
     /**
      * Returns the lifetime of the items the instance contains.
      *
-     * @return array The array with the items and their lifetime
+     * @param string|null $key The key to load the lifetime for, optional null to return an array of lifetimes for all elements
+     *
+     * @return integer|array The lifetime of the requested value or and array with the items and their lifetime
      */
-    public function getLifetime()
+    public function getLifetime($key = null)
     {
-        return $this->lifetime;
+
+        // query whether a key has been passed or not and if it is valid
+        if ($key == null) {
+            return $this->lifetime;
+        }
+
+        // return a value in the future if lifetime has not been set
+        if (isset($this->lifetime[$key]) === false) {
+            return time() + 60;
+        }
+
+        // return the lifetime for the value with the passed key
+        return $this->lifetime[$key];
     }
 
     /**

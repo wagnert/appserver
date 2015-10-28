@@ -68,7 +68,7 @@ class DefaultStatefulSessionBeanSettings extends GenericStackable implements Sta
     public function __construct()
     {
         // initialize the default values
-        $this->setSessionMaximumAge(1440);
+        $this->setSessionMaximumAge(0);
         $this->setInactivityTimeout(DefaultStatefulSessionBeanSettings::DEFAULT_INACTIVITY_TIMEOUT);
         $this->setSessionFilePrefix(DefaultStatefulSessionBeanSettings::DEFAULT_SESSION_FILE_PREFIX);
         $this->setGarbageCollectionProbability(DefaultStatefulSessionBeanSettings::DEFAULT_GARBAGE_COLLECTION_PROBABILITY);

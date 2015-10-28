@@ -49,6 +49,30 @@ class StandardGarbageCollector extends AbstractDaemonThread
     }
 
     /**
+     * Injects the SFSB settings.
+     *
+     * @param \AppserverIo\Appserver\PersistenceContainer\StatefullSessionBeanSettingsInterface $statefulSessionBeanSettings Settings for the SFSB handling
+     *
+     * @return void
+     */
+    public function injectStatefulSessionBeanSettings($statefulSessionBeanSettings)
+    {
+        $this->statefulSessionBeanSettings = $statefulSessionBeanSettings;
+    }
+
+    /**
+     * Injects the session marshaller.
+     *
+     * @param \AppserverIo\Appserver\ServletEngine\SessionMarshallerInterface $sessionMarshaller The session marshaller instance
+     *
+     * @return void
+     */
+    public function injectSessionMarshaller($sessionMarshaller)
+    {
+        $this->sessionMarshaller = $sessionMarshaller;
+    }
+
+    /**
      * Returns the application instance.
      *
      * @return \AppserverIo\Psr\Application\ApplicationInterface The application instance
@@ -56,6 +80,26 @@ class StandardGarbageCollector extends AbstractDaemonThread
     public function getApplication()
     {
         return $this->application;
+    }
+
+    /**
+     * Returns the session settings.
+     *
+     * @return \AppserverIo\Appserver\PersistenceContainer\StatefulSessionBeanSettingsInterface The session settings
+     */
+    public function getStatefulSessionBeanSettings()
+    {
+        return $this->statefulSessionBeanSettings;
+    }
+
+    /**
+     * Returns the session marshaller.
+     *
+     * @return \AppserverIo\Appserver\ServletEngine\SessionMarshallerInterface The session marshaller
+     */
+    public function getSessionMarshaller()
+    {
+        return $this->sessionMarshaller;
     }
 
     /**
@@ -101,6 +145,27 @@ class StandardGarbageCollector extends AbstractDaemonThread
     }
 
     /**
+     * Returns the default path to persist sessions.
+     *
+     * @param string $toAppend A relative path to append to the session save path
+     *
+     * @return string The default path to persist session
+     */
+    public function getSessionSavePath($toAppend = null)
+    {
+        // load the default path
+        $sessionSavePath = $this->getStatefulSessionBeanSettings()->getSessionSavePath();
+
+        // check if we've something to append
+        if ($toAppend != null) {
+            $sessionSavePath = $sessionSavePath . DIRECTORY_SEPARATOR . $toAppend;
+        }
+
+        // return the session save path
+        return $sessionSavePath;
+    }
+
+    /**
      * Collects the SFSBs that has been timed out
      *
      * @return void
@@ -119,6 +184,43 @@ class StandardGarbageCollector extends AbstractDaemonThread
         // initialize the timestamp with the actual time
         $actualTime = time();
 
+        // prepare the glob to load the session
+        $glob = $this->getSessionSavePath($this->getStatefulSessionBeanSettings()->getSessionFilePrefix() . '*');
+
+        // iterate through all session files and initialize them
+        foreach (glob($glob) as $pathname) {
+
+            // the requested session file is not a valid file
+            if ($this->sessionFileExists($pathname) === false) {
+                return;
+            }
+
+            // decode the session from the filesystem
+            if (($marshalled = file_get_contents($pathname)) === false) {
+                throw new SessionDataNotReadableException(sprintf('Can\'t load session data from file %s', $pathname));
+            }
+
+            // un-marshall the wrapper for the SFSB instance
+            $wrapper = $this->unmarshall($marshalled);
+
+            // check the lifetime of the stateful session beans
+            if ($lifetime < $actualTime) {
+                // if the stateful session bean has timed out, remove it
+                $statefulSessionBeans->remove($identifier, array($beanManager, 'destroyBeanInstance'));
+                // write a log message
+                $this->getApplication()
+                     ->getNamingDirectory()
+                     ->search('php:global/log/System')
+                     ->debug(sprintf('Successfully removed SFSB %s', $identifier));
+                // reduce CPU load
+                usleep(1000);
+            }
+        }
+
+        /*
+        // initialize the timestamp with the actual time
+        $actualTime = time();
+
         // iterate over the applications sessions with stateful session beans
         foreach ($statefulSessionBeans->getLifetime() as $identifier => $lifetime) {
             // check the lifetime of the stateful session beans
@@ -134,6 +236,7 @@ class StandardGarbageCollector extends AbstractDaemonThread
                 usleep(1000);
             }
         }
+        */
 
         // profile the size of the sessions
         if ($this->profileLogger) {
@@ -155,5 +258,29 @@ class StandardGarbageCollector extends AbstractDaemonThread
     public function log($level, $message, array $context = array())
     {
         $this->getApplication()->getInitialContext()->getSystemLogger()->log($level, $message, $context);
+    }
+
+    /**
+     * Initializes the SFSB instance from the passed JSON string and returns it
+     *
+     * @param string $marshalled The marshaled SFSB representation
+     *
+     * @return \AppserverIo\Appserver\PersistenceContainer\StatefulSessionBeanWrapperInterface $wrapper The SFSB wrapper
+     */
+    public function unmarshall($marshalled)
+    {
+        return $this->getSessionMarshaller()->unmarshall($marshalled);
+    }
+
+    /**
+     * Transforms the passed SFSB into a JSON encoded string and returns it.
+     *
+     * @param \AppserverIo\Appserver\PersistenceContainer\StatefulSessionBeanWrapperInterface $wrapper The SFSB to be transformed
+     *
+     * @return string The marshalled SFSB representation
+     */
+    public function marshall(StatefulSessionBeanWrapperInterface $wrapper)
+    {
+        return $this->getSessionMarshaller()->marshall($wrapper);
     }
 }

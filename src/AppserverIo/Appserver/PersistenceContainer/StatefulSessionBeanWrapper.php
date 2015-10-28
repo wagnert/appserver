@@ -47,6 +47,13 @@ class StatefulSessionBeanWrapper implements StatefulSessionBeanWrapperInterface
     protected $type = null;
 
     /**
+     * The SFSB lifetime.
+     *
+     * @var integer
+     */
+    protected $lifetime = 0;
+
+    /**
      * The SFSB instance.
      *
      * @var object
@@ -83,6 +90,26 @@ class StatefulSessionBeanWrapper implements StatefulSessionBeanWrapperInterface
     public function getId()
     {
         return $this->id;
+    }
+
+    /**
+     * Set's the SFSB lifetime.
+     *
+     * @param integer $lifetime The SFSB lifetime
+     */
+    public function setLifetime($lifetime)
+    {
+        $this->lifetime = $lifetime;
+    }
+
+    /**
+     * Return's the SFSB lifetime.
+     *
+     * @return integer The SFSB lifetime
+     */
+    public function getLifetime()
+    {
+        return $this->lifetime;
     }
 
     /**
