@@ -65,7 +65,7 @@ class EntityManagerFactory
         }
 
         // query whether or not an initialize EM configuration is available
-        if ($application->hasAttribute($persistenceUnitNode->getName()) === false) {
+        // if ($application->hasAttribute($persistenceUnitNode->getName()) === false) {
             // globally ignore configured annotations to ignore
             foreach ($persistenceUnitNode->getIgnoredAnnotations() as $ignoredAnnotation) {
                 AnnotationReader::addGlobalIgnoredName($ignoredAnnotation->getNodeValue()->__toString());
@@ -90,7 +90,31 @@ class EntityManagerFactory
             // create the database configuration and initialize the entity manager
             /** @var \Doctrine\DBAL\Configuration $configuration */
             $configuration = new Configuration();
-            $configuration->setMetadataDriverImpl($metadataDriverFactory::get($configuration, $absolutePaths, $metadataDriverParams));
+            $configuration->setMetadataDriverImpl($metadataDriver = $metadataDriverFactory::get($configuration, $absolutePaths, $metadataDriverParams));
+
+            $annotationReader = $metadataDriver->getReader();
+
+            // create a driver chain for metadata reading
+            $driverChain = new \Doctrine\Common\Persistence\Mapping\Driver\MappingDriverChain();
+
+            // load superclass metadata mapping only, into driver chain
+            // also registers Gedmo annotations.NOTE: you can personalize it
+            \Gedmo\DoctrineExtensions::registerAbstractMappingIntoDriverChainORM(
+                $driverChain, // our metadata driver chain, to hook into
+                $annotationReader // our cached annotation reader
+            );
+
+            // NOTE: driver for application Entity can be different, Yaml, Xml or whatever
+            // register annotation driver for our application Entity namespace
+            $driverChain->addDriver($metadataDriver, 'Entity');
+
+            // Third, create event manager and hook prefered extension listeners
+            $evm = new \Doctrine\Common\EventManager();
+
+            // tree
+            $treeListener = new \Gedmo\Tree\TreeListener();
+            $treeListener->setAnnotationReader($annotationReader);
+            $evm->addEventSubscriber($treeListener);
 
             // initialize the metadata cache configuration
             $metadataCacheConfiguration = $persistenceUnitNode->getMetadataCacheConfiguration();
@@ -163,15 +187,15 @@ class EntityManagerFactory
             $connectionParameters = ConnectionUtil::get($application)->fromDatabaseNode($databaseNode);
 
             // append the initialized EM configuration to the application
-            $application->setAttribute($persistenceUnitNode->getName(), array($connectionParameters, $configuration));
-        }
+            // $application->setAttribute($persistenceUnitNode->getName(), array($connectionParameters, $configuration));
+        // }
 
         // load the initialized EM configuration from the application
-        list ($connectionParameters, $configuration) = $application->getAttribute($persistenceUnitNode->getName());
+        // list ($connectionParameters, $configuration) = $application->getAttribute($persistenceUnitNode->getName());
 
         // initialize and return a entity manager decorator instance
         return new DoctrineEntityManagerDecorator(
-            EntityManager::create($connectionParameters, $configuration)
+            EntityManager::create($connectionParameters, $configuration, $evm)
         );
     }
 
